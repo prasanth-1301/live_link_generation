@@ -92,10 +92,20 @@ function ParentLiveContent() {
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
+        console.error("IKLO HLS ERROR:", data);
+
+        const responseCode = data.response?.code || "none";
+        const responseText = data.response?.text || "";
+        const details = [
+          data.type,
+          data.details,
+          "HTTP: " + responseCode,
+          responseText
+        ].filter(Boolean).join(" | ");
+
+        setStreamError("Video playback error: " + details);
+
         if (data.fatal) {
-          setStreamError(
-            "Unable to play the live stream. Please check the stream connection."
-          );
           hls?.destroy();
           hls = null;
         }
@@ -214,4 +224,5 @@ export default function ParentLivePage() {
     </Suspense>
   );
 }
+
 
