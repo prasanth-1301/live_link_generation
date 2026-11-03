@@ -77,14 +77,34 @@ function ParentLiveContent() {
         enableWorker: true,
         lowLatencyMode: false,
         liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 6,
-        maxBufferLength: 15,
-        manifestLoadingMaxRetry: 5,
-        levelLoadingMaxRetry: 5,
-        fragLoadingMaxRetry: 5,
+        liveMaxLatencyDurationCount: 10,
+        maxBufferLength: 30,
+        manifestLoadingMaxRetry: 10,
+        levelLoadingMaxRetry: 10,
+        fragLoadingMaxRetry: 10,
+        startPosition: -1,
       });
 
-      hls.loadSource(playlistUrl);
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+        hls?.loadSource(playlistUrl);
+      });
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        console.error("IKLO PLAYER ERROR:", data);
+
+        if (!data.fatal) return;
+
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          hls?.startLoad();
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls?.recoverMediaError();
+        } else {
+          setStreamError("Video player failed: " + data.details);
+          hls?.destroy();
+          hls = null;
+        }
+      });
+
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -224,5 +244,6 @@ export default function ParentLivePage() {
     </Suspense>
   );
 }
+
 
 
