@@ -1,8 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Hls from "hls.js";
 
 interface SessionData {
   active: boolean;
@@ -11,15 +10,15 @@ interface SessionData {
   checkedInAt?: string;
 }
 
+const STREAM_URL = "http://3.110.182.41:8888";
+
 function ParentLiveContent() {
   const params = useParams<{ token: string }>();
   const token = params.token;
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [streamError, setStreamError] = useState("");
 
   useEffect(() => {
     if (!token) return;
@@ -28,9 +27,10 @@ function ParentLiveContent() {
 
     const checkSession = async () => {
       try {
-        const response = await fetch(`/api/live/${encodeURIComponent(token)}`, {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `/api/live/${encodeURIComponent(token)}`,
+          { cache: "no-store" }
+        );
 
         if (!response.ok) {
           throw new Error("Unable to verify your session.");
@@ -45,7 +45,9 @@ function ParentLiveContent() {
         }
       } catch (err) {
         if (mounted) {
-          setError(err instanceof Error ? err.message : "Something went wrong.");
+          setError(
+            err instanceof Error ? err.message : "Something went wrong."
+          );
           setLoading(false);
         }
       }
@@ -59,88 +61,6 @@ function ParentLiveContent() {
       clearInterval(interval);
     };
   }, [token]);
-
-  useEffect(() => {
-    if (!session?.active || !videoRef.current) return;
-
-    const video = videoRef.current;
-    const playlistUrl = "/api/stream/camera-low-latency/index.m3u8";
-    let hls: Hls | null = null;
-
-    setStreamError("");
-
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = playlistUrl;
-      video.play().catch(() => {});
-    } else if (Hls.isSupported()) {
-      hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: false,
-        liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 10,
-        maxBufferLength: 30,
-        manifestLoadingMaxRetry: 10,
-        levelLoadingMaxRetry: 10,
-        fragLoadingMaxRetry: 10,
-        startPosition: -1,
-      });
-
-      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-        hls?.loadSource(playlistUrl);
-      });
-
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        console.error("IKLO PLAYER ERROR:", data);
-
-        if (!data.fatal) return;
-
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          hls?.startLoad();
-        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          hls?.recoverMediaError();
-        } else {
-          setStreamError("Video player failed: " + data.details);
-          hls?.destroy();
-          hls = null;
-        }
-      });
-
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {});
-      });
-
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        console.error("IKLO HLS ERROR:", data);
-
-        const responseCode = data.response?.code || "none";
-        const responseText = data.response?.text || "";
-        const details = [
-          data.type,
-          data.details,
-          "HTTP: " + responseCode,
-          responseText
-        ].filter(Boolean).join(" | ");
-
-        setStreamError("Video playback error: " + details);
-
-        if (data.fatal) {
-          hls?.destroy();
-          hls = null;
-        }
-      });
-    } else {
-      setStreamError("This browser does not support HLS playback.");
-    }
-
-    return () => {
-      if (hls) hls.destroy();
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-    };
-  }, [session?.active]);
 
   if (loading) {
     return (
@@ -209,17 +129,13 @@ function ParentLiveContent() {
         </section>
 
         <section className="bg-black rounded-2xl overflow-hidden shadow-lg">
-          <video
-            ref={videoRef}
-            className="w-full aspect-video"
-            controls
-            autoPlay
-            muted
-            playsInline
+          <iframe
+            src={`${STREAM_URL}/camera-low-latency/`}
+            title="Iklo Live CCTV Stream"
+            className="w-full aspect-video border-0"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
           />
-          {streamError && (
-            <p className="p-4 text-center text-red-400">{streamError}</p>
-          )}
         </section>
 
         <p className="text-center text-sm text-gray-500 mt-5">
@@ -244,6 +160,3 @@ export default function ParentLivePage() {
     </Suspense>
   );
 }
-
-
-
