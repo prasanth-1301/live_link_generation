@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
@@ -9,8 +10,6 @@ interface SessionData {
   parentName?: string;
   checkedInAt?: string;
 }
-
-const STREAM_URL = "http://3.110.182.41:8888";
 
 function ParentLiveContent() {
   const params = useParams<{ token: string }>();
@@ -27,10 +26,9 @@ function ParentLiveContent() {
 
     const checkSession = async () => {
       try {
-        const response = await fetch(
-          `/api/live/${encodeURIComponent(token)}`,
-          { cache: "no-store" }
-        );
+        const response = await fetch(`/api/live/${token}`, {
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           throw new Error("Unable to verify your session.");
@@ -46,7 +44,9 @@ function ParentLiveContent() {
       } catch (err) {
         if (mounted) {
           setError(
-            err instanceof Error ? err.message : "Something went wrong."
+            err instanceof Error
+              ? err.message
+              : "Something went wrong."
           );
           setLoading(false);
         }
@@ -54,6 +54,7 @@ function ParentLiveContent() {
     };
 
     checkSession();
+
     const interval = setInterval(checkSession, 5000);
 
     return () => {
@@ -87,7 +88,7 @@ function ParentLiveContent() {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
         <div className="bg-white rounded-2xl shadow p-8 text-center max-w-md w-full">
-          <div className="text-5xl mb-4">?</div>
+          <div className="text-5xl mb-4">Γ£ô</div>
           <h1 className="text-2xl font-bold text-gray-900">
             Session Completed
           </h1>
@@ -107,7 +108,9 @@ function ParentLiveContent() {
       <div className="max-w-5xl mx-auto">
         <header className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-green-700">iklo</h1>
+            <h1 className="text-3xl font-bold text-green-700">
+              iklo
+            </h1>
             <p className="text-sm text-gray-500">
               Secure Parent Live Viewing
             </p>
@@ -115,7 +118,9 @@ function ParentLiveContent() {
 
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-medium text-green-700">LIVE</span>
+            <span className="text-sm font-medium text-green-700">
+              LIVE
+            </span>
           </div>
         </header>
 
@@ -130,10 +135,10 @@ function ParentLiveContent() {
 
         <section className="bg-black rounded-2xl overflow-hidden shadow-lg">
           <iframe
-            src={`${STREAM_URL}/camera-low-latency/`}
+            src="http://3.110.182.41:8889/camera-low-latency/"
             title="Iklo Live CCTV Stream"
             className="w-full aspect-video border-0"
-            allow="autoplay; fullscreen; picture-in-picture"
+            allow="autoplay; fullscreen"
             allowFullScreen
           />
         </section>
