@@ -75,7 +75,13 @@ function ParentLiveContent() {
     } else if (Hls.isSupported()) {
       hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: true,
+        lowLatencyMode: false,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 6,
+        maxBufferLength: 15,
+        manifestLoadingMaxRetry: 5,
+        levelLoadingMaxRetry: 5,
+        fragLoadingMaxRetry: 5,
       });
 
       hls.loadSource(playlistUrl);
@@ -208,3 +214,4 @@ export default function ParentLivePage() {
     </Suspense>
   );
 }
+
