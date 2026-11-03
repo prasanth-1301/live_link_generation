@@ -1,8 +1,8 @@
-
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import Hls from "hls.js";
 
 interface SessionData {
   active: boolean;
@@ -14,10 +14,12 @@ interface SessionData {
 function ParentLiveContent() {
   const params = useParams<{ token: string }>();
   const token = params.token;
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [streamError, setStreamError] = useState("");
 
   useEffect(() => {
     if (!token) return;
@@ -26,7 +28,7 @@ function ParentLiveContent() {
 
     const checkSession = async () => {
       try {
-        const response = await fetch(`/api/live/${token}`, {
+        const response = await fetch(`/api/live/${encodeURIComponent(token)}`, {
           cache: "no-store",
         });
 
@@ -43,18 +45,13 @@ function ParentLiveContent() {
         }
       } catch (err) {
         if (mounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Something went wrong."
-          );
+          setError(err instanceof Error ? err.message : "Something went wrong.");
           setLoading(false);
         }
       }
     };
 
     checkSession();
-
     const interval = setInterval(checkSession, 5000);
 
     return () => {
@@ -62,6 +59,52 @@ function ParentLiveContent() {
       clearInterval(interval);
     };
   }, [token]);
+
+  useEffect(() => {
+    if (!session?.active || !videoRef.current) return;
+
+    const video = videoRef.current;
+    const playlistUrl = "/api/stream/camera-low-latency/index.m3u8";
+    let hls: Hls | null = null;
+
+    setStreamError("");
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = playlistUrl;
+      video.play().catch(() => {});
+    } else if (Hls.isSupported()) {
+      hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+      });
+
+      hls.loadSource(playlistUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => {});
+      });
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          setStreamError(
+            "Unable to play the live stream. Please check the stream connection."
+          );
+          hls?.destroy();
+          hls = null;
+        }
+      });
+    } else {
+      setStreamError("This browser does not support HLS playback.");
+    }
+
+    return () => {
+      if (hls) hls.destroy();
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    };
+  }, [session?.active]);
 
   if (loading) {
     return (
@@ -88,7 +131,7 @@ function ParentLiveContent() {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
         <div className="bg-white rounded-2xl shadow p-8 text-center max-w-md w-full">
-          <div className="text-5xl mb-4">✓</div>
+          <div className="text-5xl mb-4">?</div>
           <h1 className="text-2xl font-bold text-gray-900">
             Session Completed
           </h1>
@@ -108,9 +151,7 @@ function ParentLiveContent() {
       <div className="max-w-5xl mx-auto">
         <header className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-green-700">
-              iklo
-            </h1>
+            <h1 className="text-3xl font-bold text-green-700">iklo</h1>
             <p className="text-sm text-gray-500">
               Secure Parent Live Viewing
             </p>
@@ -118,9 +159,7 @@ function ParentLiveContent() {
 
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-medium text-green-700">
-              LIVE
-            </span>
+            <span className="text-sm font-medium text-green-700">LIVE</span>
           </div>
         </header>
 
@@ -134,13 +173,17 @@ function ParentLiveContent() {
         </section>
 
         <section className="bg-black rounded-2xl overflow-hidden shadow-lg">
-          <iframe
-            src="http://3.110.182.41:8889/camera-low-latency/"
-            title="Iklo Live CCTV Stream"
-            className="w-full aspect-video border-0"
-            allow="autoplay; fullscreen"
-            allowFullScreen
+          <video
+            ref={videoRef}
+            className="w-full aspect-video"
+            controls
+            autoPlay
+            muted
+            playsInline
           />
+          {streamError && (
+            <p className="p-4 text-center text-red-400">{streamError}</p>
+          )}
         </section>
 
         <p className="text-center text-sm text-gray-500 mt-5">
